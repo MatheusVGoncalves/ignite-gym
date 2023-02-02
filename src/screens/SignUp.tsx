@@ -3,8 +3,20 @@ import LogoSvg from "@assets/logo.svg";
 import { Button } from "@components/Button";
 import { Input } from "@components/Input";
 import { yupResolver } from "@hookform/resolvers/yup";
+import { useAuth } from "@hooks/useAuth";
 import { useNavigation } from "@react-navigation/native";
-import { Center, Heading, Image, ScrollView, Text, VStack } from "native-base";
+import { api } from "@services/api";
+import { AppError } from "@utils/AppError";
+import {
+  Center,
+  Heading,
+  Image,
+  ScrollView,
+  Text,
+  useToast,
+  VStack,
+} from "native-base";
+import { useState } from "react";
 import { Controller, useForm } from "react-hook-form";
 import * as yup from "yup";
 
@@ -29,7 +41,14 @@ const signUpSchema = yup.object({
 });
 
 export function SignUp() {
+  const [isLoading, setIsLoading] = useState<boolean>(false);
+
+  const toast = useToast();
+
   const navigation = useNavigation();
+
+  const { signIn } = useAuth();
+
   const {
     control,
     handleSubmit,
@@ -52,13 +71,53 @@ const { control, handleSubmit } = useForm<FormDataProps>({
     navigation.goBack();
   }
 
-  function handleSignUp({
+  async function handleSignUp({
     email,
     name,
     password,
     password_confirm,
   }: FormDataProps) {
-    console.log(email, name, password, password_confirm);
+    try {
+      setIsLoading(true);
+
+      await api.post("/users", {
+        email,
+        name,
+        password,
+      });
+
+      await signIn(email, password);
+    } catch (error) {
+      setIsLoading(false);
+
+      const isAppError = error instanceof AppError;
+      const title = isAppError
+        ? error.message
+        : "Não foi possível criar a conta. Tente novamente mais tarde.";
+
+      toast.show({
+        title,
+        placement: "top",
+        bgColor: "red.500",
+      });
+    }
+
+    /*     
+      Utilizando o Fetch API:
+
+      const response = await fetch("http://192.168.15.5:3333/users", {
+      method: "POST",
+      headers: {
+        Accept: "application/json",
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        email,
+        name,
+        password,
+      }),
+    });
+   const data = await response.json(); */
   }
 
   return (
@@ -152,7 +211,11 @@ const { control, handleSubmit } = useForm<FormDataProps>({
             )}
           />
 
-          <Button title="Criar conta" onPress={handleSubmit(handleSignUp)} />
+          <Button
+            title="Criar conta"
+            onPress={handleSubmit(handleSignUp)}
+            isLoading={isLoading}
+          />
         </Center>
 
         <Button
